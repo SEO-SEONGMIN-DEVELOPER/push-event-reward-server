@@ -81,4 +81,5 @@ out/
 *.bak
 *.swp
 *~
+COMMIT_MSG.txt
 

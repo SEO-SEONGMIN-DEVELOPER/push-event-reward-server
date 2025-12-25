@@ -144,5 +144,61 @@ class ReservationServiceConcurrencyTest {
                 .as("레이스 컨디션으로 인해 생성된 예약 수가 감소된 좌석 수보다 많아야 함")
                 .isGreaterThan(decreasedSeats);
     }
+
+    @Test
+    @DisplayName("비관적 락이 적용된 상태에서 100명이 동시에 예약하면 모두 성공하고, 감소된 좌석 수와 성공한 예약 수가 일치한다")
+    void reserve_ConcurrentReservationWithPessimisticLock_AllSucceedAndSeatsMatch() throws InterruptedException {
+        Long concertId = testConcert.getId();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_USERS);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(CONCURRENT_USERS);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        for (int i = 0; i < CONCURRENT_USERS; i++) {
+            final int memberIndex = i;
+            executorService.submit(() -> {
+                try {
+                    startLatch.await();
+                    reservationService.reserve(concertId, testMembers.get(memberIndex).getId());
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    finishLatch.countDown();
+                }
+            });
+        }
+
+        startLatch.countDown();
+        finishLatch.await();
+
+        executorService.shutdown();
+
+        Concert updatedConcert = concertRepository.findById(concertId)
+                .orElseThrow();
+
+        long createdReservationCount = reservationRepository.count();
+        int remainingSeats = updatedConcert.getRemainingSeats();
+        int decreasedSeats = TOTAL_SEATS - remainingSeats;
+
+        System.out.println("\n========== 비관적 락 테스트 결과 ==========");
+        System.out.println("성공한 예약 수: " + successCount.get());
+        System.out.println("실패한 예약 수: " + failureCount.get());
+        System.out.println("\n초기 좌석 수: " + TOTAL_SEATS);
+        System.out.println("남은 좌석 수: " + remainingSeats);
+        System.out.println("감소된 좌석 수: " + decreasedSeats);
+        System.out.println("생성된 예약 수: " + createdReservationCount);
+        System.out.println("==========================================\n");
+
+        assertThat(createdReservationCount)
+                .as("비관적 락이 적용되어 모든 예약이 성공해야 함")
+                .isEqualTo(CONCURRENT_USERS);
+
+        assertThat(createdReservationCount)
+                .as("생성된 예약 수와 감소된 좌석 수가 일치해야 함")
+                .isEqualTo(decreasedSeats);
+    }
 }
 

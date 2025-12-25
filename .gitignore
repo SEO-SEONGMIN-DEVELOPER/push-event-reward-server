@@ -82,4 +82,7 @@ out/
 *.swp
 *~
 COMMIT_MSG.txt
+set-java21.sh
+README.md
+setup-java21.sh
 

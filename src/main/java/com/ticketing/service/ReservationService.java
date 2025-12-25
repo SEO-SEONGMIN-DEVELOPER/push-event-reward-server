@@ -22,7 +22,7 @@ public class ReservationService {
 
     @Transactional
     public Reservation reserve(Long concertId, Long memberId) {
-        Concert concert = concertRepository.findById(concertId)
+        Concert concert = concertRepository.findByIdWithLock(concertId)
                 .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
 
         Member member = memberRepository.findById(memberId)

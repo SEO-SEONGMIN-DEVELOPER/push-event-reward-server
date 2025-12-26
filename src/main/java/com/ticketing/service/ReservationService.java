@@ -21,8 +21,26 @@ public class ReservationService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Reservation reserve(Long concertId, Long memberId) {
+    public Reservation reserveWithPessimisticLock(Long concertId, Long memberId) {
         Concert concert = concertRepository.findByIdWithLock(concertId)
+                .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        if (concert.getRemainingSeats() <= 0) {
+            throw new IllegalArgumentException("남은 좌석이 없습니다");
+        }
+
+        concert.reserveSeat();
+
+        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+        return reservationRepository.save(reservation);
+    }
+
+    @Transactional
+    public Reservation reserveWithoutLock(Long concertId, Long memberId) {
+        Concert concert = concertRepository.findById(concertId)
                 .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
 
         Member member = memberRepository.findById(memberId)

@@ -5,6 +5,7 @@ import com.ticketing.domain.concert.ConcertRepository;
 import com.ticketing.domain.member.Member;
 import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.ReservationRepository;
+import com.ticketing.facade.ConcertFacade;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +40,9 @@ class ReservationServiceConcurrencyTest {
 
     @Autowired
     private ReservationRepository reservationRepository;
+
+    @Autowired
+    private ConcertFacade concertFacade;
 
     private Concert testConcert;
     private List<Member> testMembers;
@@ -82,7 +86,7 @@ class ReservationServiceConcurrencyTest {
             executorService.submit(() -> {
                 try {
                     startLatch.await();
-                    reservationService.reserve(concertId, testMembers.get(memberIndex).getId());
+                    reservationService.reserveWithoutLock(concertId, testMembers.get(memberIndex).getId());
                     successCount.incrementAndGet();
                 } catch (IllegalArgumentException e) {
                     illegalArgumentExceptionCount.incrementAndGet();
@@ -161,7 +165,7 @@ class ReservationServiceConcurrencyTest {
             executorService.submit(() -> {
                 try {
                     startLatch.await();
-                    reservationService.reserve(concertId, testMembers.get(memberIndex).getId());
+                    reservationService.reserveWithPessimisticLock(concertId, testMembers.get(memberIndex).getId());
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failureCount.incrementAndGet();
@@ -171,8 +175,10 @@ class ReservationServiceConcurrencyTest {
             });
         }
 
+        long startTime = System.currentTimeMillis();
         startLatch.countDown();
         finishLatch.await();
+        long endTime = System.currentTimeMillis();
 
         executorService.shutdown();
 
@@ -191,6 +197,16 @@ class ReservationServiceConcurrencyTest {
         System.out.println("감소된 좌석 수: " + decreasedSeats);
         System.out.println("생성된 예약 수: " + createdReservationCount);
         System.out.println("==========================================\n");
+
+        long totalElapsedTime = endTime - startTime;
+        double tps = (CONCURRENT_USERS / (totalElapsedTime / 1000.0));
+
+        System.out.println("================================================");
+        System.out.println("[비관적 락 성능 측정 결과]");
+        System.out.println("- 총 시도 횟수: " + CONCURRENT_USERS + "건");
+        System.out.println("- 총 소요 시간: " + totalElapsedTime + " ms");
+        System.out.println("- 초당 처리량(TPS): " + String.format("%.2f", tps) + " 건/초");
+        System.out.println("================================================\n");
 
         assertThat(createdReservationCount)
                 .as("비관적 락이 적용되어 모든 예약이 성공해야 함")

@@ -16,7 +16,7 @@ public class ReservationController {
 
     @PostMapping
     public ResponseEntity<ReservationResponse> reserve(@RequestBody ReservationRequest request) {
-        Reservation reservation = reservationService.reserve(request.concertId(), request.memberId());
+        Reservation reservation = reservationService.reserveWithoutLock(request.concertId(), request.memberId());
         ReservationResponse response = new ReservationResponse(
                 reservation.getId(),
                 reservation.getConcert().getId(),

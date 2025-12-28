@@ -24,7 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.kafka:spring-kafka")
-    
+
     // Redisson
     implementation("org.redisson:redisson-spring-boot-starter:3.24.3")
 

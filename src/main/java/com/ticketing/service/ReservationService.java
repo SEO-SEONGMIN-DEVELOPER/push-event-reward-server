@@ -55,5 +55,25 @@ public class ReservationService {
         Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
         return reservationRepository.save(reservation);
     }
-}
 
+    @Transactional
+    public Reservation reserveWithPessimisticLockAndHold(Long concertId, Long memberId) throws InterruptedException {
+        Concert concert = concertRepository.findByIdWithLock(concertId)
+                .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
+
+        // 락을 획득한 상태에서 0.5초 대기 (커넥션 점유 시간 증가)
+        Thread.sleep(500);
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        if (concert.getRemainingSeats() <= 0) {
+            throw new IllegalArgumentException("남은 좌석이 없습니다");
+        }
+
+        concert.reserveSeat();
+
+        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+        return reservationRepository.save(reservation);
+    }
+}

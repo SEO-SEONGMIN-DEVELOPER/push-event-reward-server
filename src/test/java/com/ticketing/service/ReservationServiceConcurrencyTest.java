@@ -69,7 +69,7 @@ class ReservationServiceConcurrencyTest {
     }
 
     @Test
-    @DisplayName("동시에 100명이 100석 공연을 예약하면 레이스 컨디션으로 인해 생성된 예약 수가 감소된 좌석 수보다 많다")
+    @DisplayName("동시에 100명이 100석 공연을 예약하면 레이스 컨디션으로 인해 생성된 예약 수가 감소된 좌석 수보다 많음")
     void reserve_ConcurrentReservation_RaceConditionOccurs() throws InterruptedException {
         Long concertId = testConcert.getId();
         ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_USERS);
@@ -150,7 +150,7 @@ class ReservationServiceConcurrencyTest {
     }
 
     @Test
-    @DisplayName("비관적 락이 적용된 상태에서 100명이 동시에 예약하면 모두 성공하고, 감소된 좌석 수와 성공한 예약 수가 일치한다")
+    @DisplayName("비관적 락이 적용된 상태에서 100명이 동시에 예약하면 모두 성공하고, 감소된 좌석 수와 성공한 예약 수가 일치함")
     void reserve_ConcurrentReservationWithPessimisticLock_AllSucceedAndSeatsMatch() throws InterruptedException {
         Long concertId = testConcert.getId();
 
@@ -210,6 +210,74 @@ class ReservationServiceConcurrencyTest {
 
         assertThat(createdReservationCount)
                 .as("비관적 락이 적용되어 모든 예약이 성공해야 함")
+                .isEqualTo(CONCURRENT_USERS);
+
+        assertThat(createdReservationCount)
+                .as("생성된 예약 수와 감소된 좌석 수가 일치해야 함")
+                .isEqualTo(decreasedSeats);
+    }
+
+    @Test
+    @DisplayName("Redisson 분산 락이 적용된 상태에서 100명이 동시에 예약하면 모두 성공하고, 감소된 좌석 수와 성공한 예약 수가 일치함")
+    void reserve_ConcurrentReservationWithDistributedLock_AllSucceedAndSeatsMatch() throws InterruptedException {
+        Long concertId = testConcert.getId();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(CONCURRENT_USERS);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch finishLatch = new CountDownLatch(CONCURRENT_USERS);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        for (int i = 0; i < CONCURRENT_USERS; i++) {
+            final int memberIndex = i;
+            executorService.submit(() -> {
+                try {
+                    startLatch.await();
+                    concertFacade.reserve(concertId, testMembers.get(memberIndex).getId());
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    failureCount.incrementAndGet();
+                } finally {
+                    finishLatch.countDown();
+                }
+            });
+        }
+
+        long startTime = System.currentTimeMillis();
+        startLatch.countDown();
+        finishLatch.await();
+        long endTime = System.currentTimeMillis();
+
+        executorService.shutdown();
+
+        Concert updatedConcert = concertRepository.findById(concertId)
+                .orElseThrow();
+
+        long createdReservationCount = reservationRepository.count();
+        int remainingSeats = updatedConcert.getRemainingSeats();
+        int decreasedSeats = TOTAL_SEATS - remainingSeats;
+
+        System.out.println("\n========== 분산 락 테스트 결과 ==========");
+        System.out.println("성공한 예약 수: " + successCount.get());
+        System.out.println("실패한 예약 수: " + failureCount.get());
+        System.out.println("\n초기 좌석 수: " + TOTAL_SEATS);
+        System.out.println("남은 좌석 수: " + remainingSeats);
+        System.out.println("감소된 좌석 수: " + decreasedSeats);
+        System.out.println("생성된 예약 수: " + createdReservationCount);
+        System.out.println("==========================================\n");
+
+        long totalElapsedTime = endTime - startTime;
+        double tps = (CONCURRENT_USERS / (totalElapsedTime / 1000.0));
+
+        System.out.println("================================================");
+        System.out.println("[분산 락 성능 측정 결과]");
+        System.out.println("- 총 시도 횟수: " + CONCURRENT_USERS + "건");
+        System.out.println("- 총 소요 시간: " + totalElapsedTime + " ms");
+        System.out.println("- 초당 처리량(TPS): " + String.format("%.2f", tps) + " 건/초");
+        System.out.println("================================================\n");
+
+        assertThat(createdReservationCount)
+                .as("분산 락이 적용되어 모든 예약이 성공해야 함")
                 .isEqualTo(CONCURRENT_USERS);
 
         assertThat(createdReservationCount)

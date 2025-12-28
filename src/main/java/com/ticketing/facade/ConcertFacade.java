@@ -42,5 +42,30 @@ public class ConcertFacade {
             throw new IllegalStateException("락 획득 중 인터럽트가 발생했습니다.", e);
         }
     }
+
+    public Reservation reserveAndHold(Long concertId, Long memberId) throws InterruptedException {
+        String lockKey = LOCK_PREFIX + concertId;
+        RLock lock = redissonClient.getLock(lockKey);
+
+        try {
+            boolean acquired = lock.tryLock(WAIT_TIME, LEASE_TIME, TimeUnit.SECONDS);
+            if (!acquired) {
+                throw new IllegalStateException("락 획득에 실패했습니다. 잠시 후 다시 시도해주세요.");
+            }
+
+            try {
+                Reservation reservation = reservationService.reserveWithoutLock(concertId, memberId);
+                Thread.sleep(500);
+                return reservation;
+            } finally {
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("락 획득 중 인터럽트가 발생했습니다.", e);
+        }
+    }
 }
 

@@ -24,9 +24,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // Redisson
     implementation("org.redisson:redisson-spring-boot-starter:3.24.3")
+
+    // Monitoring
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Database
     runtimeOnly("com.mysql:mysql-connector-j")

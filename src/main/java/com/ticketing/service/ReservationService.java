@@ -52,6 +52,13 @@ public class ReservationService {
 
         concert.reserveSeat();
 
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("처리 중 인터럽트가 발생했습니다.", e);
+        }
+
         Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
         return reservationRepository.save(reservation);
     }

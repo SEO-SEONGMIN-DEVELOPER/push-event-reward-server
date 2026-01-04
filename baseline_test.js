@@ -1,7 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
-import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
 
 const errorRate = new Rate('errors');
 const responseTime = new Trend('response_time');
@@ -20,9 +19,38 @@ export const options = {
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 
-export default function () {
-  const concertId = Math.floor(Math.random() * 1000) + 1;
-  const memberId = Math.floor(Math.random() * 10000) + 1;
+export function setup() {
+  console.log('데이터베이스 초기화를 시작합니다...');
+  
+  const initResponse = http.post(`${BASE_URL}/api/test/init`, null, {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: '30s',
+  });
+
+  if (initResponse.status === 201) {
+    const body = JSON.parse(initResponse.body);
+    console.log(`✓ 데이터베이스 초기화 완료: Concert ${body.concertCount}개, Member ${body.memberCount}개`);
+    console.log(`  Concert IDs: ${body.concertIds.join(', ')}`);
+    console.log(`  Member ID 범위: ${body.memberIds[0]} ~ ${body.memberIds[body.memberIds.length - 1]}`);
+    
+    return { 
+      initialized: true,
+      concertIds: body.concertIds,
+      memberIds: body.memberIds
+    };
+  } else {
+    console.error(`✗ 데이터베이스 초기화 실패: Status ${initResponse.status}, Body: ${initResponse.body}`);
+    throw new Error('데이터베이스 초기화에 실패했습니다. 테스트를 중단합니다.');
+  }
+}
+
+export default function (data) {
+  const concertIds = data.concertIds || [1, 2, 3, 4, 5];
+  const memberIds = data.memberIds || Array.from({length: 200}, (_, i) => i + 1);
+  
+  // const concertId = concertIds[Math.floor(Math.random() * concertIds.length)];
+  const concertId = concertIds[0]
+  const memberId = memberIds[Math.floor(Math.random() * memberIds.length)];
 
   const payload = JSON.stringify({
     concertId: concertId,
@@ -39,67 +67,45 @@ export default function () {
   
   responseTime.add(response.timings.duration);
 
+  if (response.status !== 201) {
+    let errorType = 'Unknown Error';
+    let errorMessage = '';
+    
+    if (response.status === 0) {
+      errorType = 'Connection Failed - 애플리케이션이 실행 중이지 않거나 네트워크 오류';
+    } else if (response.status >= 500) {
+      errorType = 'Server Error (5xx)';
+    } else if (response.status === 404) {
+      errorType = 'Not Found (404)';
+    } else if (response.status === 400) {
+      errorType = 'Bad Request (400)';
+    } else if (response.status === 409) {
+      errorType = 'Conflict (409) - 중복 예약 또는 좌석 부족';
+    } else if (response.status === 429) {
+      errorType = 'Too Many Requests (429) - Rate Limit';
+    } else if (response.status >= 400) {
+      errorType = `Client Error (${response.status})`;
+    }
+    
+    try {
+      const body = JSON.parse(response.body);
+      if (body.message) {
+        errorMessage = body.message;
+      } else if (body.error) {
+        errorMessage = body.error;
+      }
+    } catch (e) {
+      errorMessage = response.body.substring(0, 200);
+    }
+    
+    console.log(`[ERROR] Type: ${errorType}, Status: ${response.status}, Message: ${errorMessage}, Request: concertId=${concertId}, memberId=${memberId}`);
+  }
+
   const success = check(response, {
     'status is 201': (r) => r.status === 201,
     'response has body': (r) => r.body.length > 0,
   });
 
   errorRate.add(!success);
-}
-
-export function handleSummary(data) {
-  return {
-    'stdout': textSummary(data, { indent: ' ', enableColors: true }),
-    'summary.json': JSON.stringify(data, null, 2),
-  };
-}
-
-// 텍스트 요약 함수
-function textSummary(data, options = {}) {
-  const indent = options.indent || '';
-  const enableColors = options.enableColors || false;
-  
-  let summary = '\n';
-  summary += `${indent}========== K6 부하 테스트 결과 요약 ==========\n`;
-  summary += `${indent}테스트 시나리오: Ramp-up(10s) -> Steady State(30s) -> Ramp-down(10s)\n`;
-  summary += `${indent}최대 가상 유저 수: 200명\n`;
-  summary += `${indent}총 테스트 시간: 50초\n\n`;
-  
-  if (data.metrics.http_req_duration) {
-    const duration = data.metrics.http_req_duration;
-    summary += `${indent}[응답 시간]\n`;
-    summary += `${indent}  평균: ${duration.values.avg.toFixed(2)} ms\n`;
-    summary += `${indent}  P95: ${duration.values['p(95)'].toFixed(2)} ms\n`;
-    summary += `${indent}  P99: ${duration.values['p(99)'].toFixed(2)} ms\n`;
-    summary += `${indent}  최소: ${duration.values.min.toFixed(2)} ms\n`;
-    summary += `${indent}  최대: ${duration.values.max.toFixed(2)} ms\n\n`;
-  }
-  
-  if (data.metrics.http_reqs) {
-    const reqs = data.metrics.http_reqs;
-    summary += `${indent}[요청 통계]\n`;
-    summary += `${indent}  총 요청 수: ${reqs.values.count}\n`;
-    summary += `${indent}  초당 요청 수: ${reqs.values.rate.toFixed(2)} req/s\n\n`;
-  }
-  
-  if (data.metrics.http_req_failed) {
-    const failed = data.metrics.http_req_failed;
-    summary += `${indent}[에러 통계]\n`;
-    summary += `${indent}  총 에러 수: ${failed.values.count}\n`;
-    summary += `${indent}  에러율: ${(failed.values.rate * 100).toFixed(2)}%\n\n`;
-  }
-  
-  if (data.root_group.checks) {
-    summary += `${indent}[Thresholds 검증]\n`;
-    data.root_group.checks.forEach(check => {
-      const status = check.passes ? '✓ 통과' : '✗ 실패';
-      summary += `${indent}  ${check.name}: ${status}\n`;
-    });
-    summary += '\n';
-  }
-  
-  summary += `${indent}==========================================\n`;
-  
-  return summary;
 }
 

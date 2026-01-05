@@ -73,18 +73,16 @@ export default function (data) {
     
     if (response.status === 0) {
       errorType = 'Connection Failed - 애플리케이션이 실행 중이지 않거나 네트워크 오류';
-    } else if (response.status >= 500) {
-      errorType = 'Server Error (5xx)';
+    } else if (response.status === 500) {
+      errorType = 'Server Error (500)';
+    } else if (response.status === 503) {
+      errorType = 'Service Unavailable (503) - 쓰레드 풀이 부족합니다.';
     } else if (response.status === 404) {
       errorType = 'Not Found (404)';
     } else if (response.status === 400) {
-      errorType = 'Bad Request (400)';
+      errorType = 'Bad Request (400)';  
     } else if (response.status === 409) {
-      errorType = 'Conflict (409) - 중복 예약 또는 좌석 부족';
-    } else if (response.status === 429) {
-      errorType = 'Too Many Requests (429) - Rate Limit';
-    } else if (response.status >= 400) {
-      errorType = `Client Error (${response.status})`;
+      errorType = 'Conflict (409)';
     }
     
     try {

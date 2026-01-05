@@ -53,6 +53,14 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    connection-timeout: 25000      
+    keep-alive-timeout: 25000   
+    max-connections: 8192 
+    threads:
+      max: 100                       
+      min-spare: 10                  
+    accept-count: 50                
 
 logging:
   level:

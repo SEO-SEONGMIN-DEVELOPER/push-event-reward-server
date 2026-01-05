@@ -50,15 +50,7 @@ public class ReservationController {
                 exceptionClass.contains("Hikari"))) {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                         .body(new ErrorResponse("SERVICE_UNAVAILABLE", "데이터베이스 커넥션 풀이 부족합니다. 잠시 후 다시 시도해주세요."));
-            }
-            
-            if (exceptionMessage != null && (
-                exceptionMessage.contains("thread") ||
-                exceptionMessage.contains("Thread") ||
-                exceptionMessage.contains("executor"))) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                        .body(new ErrorResponse("SERVICE_UNAVAILABLE", "서버 쓰레드 풀이 부족합니다. 잠시 후 다시 시도해주세요."));
-            }
+                }
             
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("INTERNAL_SERVER_ERROR", e.getMessage()));

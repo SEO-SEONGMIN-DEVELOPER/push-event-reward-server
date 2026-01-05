@@ -17,8 +17,8 @@ public class ConcertFacade {
     private final ReservationService reservationService;
 
     private static final String LOCK_PREFIX = "lock:concert:";
-    private static final long WAIT_TIME = 5;
-    private static final long LEASE_TIME = 3;
+    private static final long WAIT_TIME = 45;
+    private static final long LEASE_TIME = 5;
 
     public Reservation reserve(Long concertId, Long memberId) {
         String lockKey = LOCK_PREFIX + concertId;
@@ -27,7 +27,7 @@ public class ConcertFacade {
         try {
             boolean acquired = lock.tryLock(WAIT_TIME, LEASE_TIME, TimeUnit.SECONDS);
             if (!acquired) {
-                throw new IllegalStateException("락 획득에 실패했습니다. 잠시 후 다시 시도해주세요.");
+                throw new IllegalStateException("타임 아웃으로 인해 락 획득에 실패했습니다. 잠시 후 다시 시도해주세요.");
             }
 
             try {

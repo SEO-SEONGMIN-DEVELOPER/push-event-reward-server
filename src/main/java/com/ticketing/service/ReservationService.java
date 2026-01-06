@@ -53,7 +53,7 @@ public class ReservationService {
         concert.reserveSeat();
 
         try {
-            Thread.sleep(500);
+            Thread.sleep(1800);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("처리 중 인터럽트가 발생했습니다.", e);

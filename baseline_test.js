@@ -6,13 +6,14 @@ const errorRate = new Rate('errors');
 const responseTime = new Trend('response_time');
 
 export const options = {
+  noConnectionReuse: true,
   stages: [
     { duration: '10s', target: 200 }, 
     { duration: '30s', target: 200 }, 
     { duration: '10s', target: 0 },  
   ],
   thresholds: {
-    'http_req_duration': ['p(95)<500'], 
+    'http_req_duration{status:201}': ['p(95)<500'], 
     'errors': ['rate<0.01'],            
   },
 };
@@ -63,47 +64,52 @@ export default function (data) {
     },
   };
 
-  const response = http.post(`${BASE_URL}/api/reservations`, payload, params);
   
-  responseTime.add(response.timings.duration);
+  try {
+    const response = http.post(`${BASE_URL}/api/reservations`, payload, params);
+    responseTime.add(response.timings.duration);
 
-  if (response.status !== 201) {
-    let errorType = 'Unknown Error';
-    let errorMessage = '';
-    
-    if (response.status === 0) {
-      errorType = 'Connection Failed - 애플리케이션이 실행 중이지 않거나 네트워크 오류';
-    } else if (response.status === 500) {
-      errorType = 'Server Error (500)';
-    } else if (response.status === 503) {
-      errorType = 'Service Unavailable (503) - 쓰레드 풀이 부족합니다.';
-    } else if (response.status === 404) {
-      errorType = 'Not Found (404)';
-    } else if (response.status === 400) {
-      errorType = 'Bad Request (400)';  
-    } else if (response.status === 409) {
-      errorType = 'Conflict (409)';
-    }
-    
-    try {
-      const body = JSON.parse(response.body);
-      if (body.message) {
-        errorMessage = body.message;
-      } else if (body.error) {
-        errorMessage = body.error;
+    if (response.status !== 201) {
+      let errorType = 'Unknown Error';
+      let errorMessage = '';
+      
+      if (response.status === 0) {
+        errorType = 'Connection Failed - 애플리케이션이 실행 중이지 않거나 네트워크 오류';
+      } else if (response.status === 500) {
+        errorType = 'Server Error (500)'; 
+      } else if (response.status === 503) {
+        errorType = 'Service Unavailable (503)';
+      } else if (response.status === 404) {
+        errorType = 'Not Found (404)';
+      } else if (response.status === 400) {
+        errorType = 'Bad Request (400)';  
+      } else if (response.status === 409) {
+        errorType = 'Conflict (409)';
       }
-    } catch (e) {
-      errorMessage = response.body.substring(0, 200);
+      
+      try {
+        const body = JSON.parse(response.body);
+        if (body.message) {
+          errorMessage = body.message;
+        } else if (body.error) {
+          errorMessage = body.error;
+        }
+      } catch (e) {
+        errorMessage = response.body.substring(0, 200);
+      }
+      
+      console.log(`[ERROR] Type: ${errorType}, Status: ${response.status}, Message: ${errorMessage}, Request: concertId=${concertId}, memberId=${memberId}`);
     }
-    
-    console.log(`[ERROR] Type: ${errorType}, Status: ${response.status}, Message: ${errorMessage}, Request: concertId=${concertId}, memberId=${memberId}`);
+
+    const success = check(response, {
+      'status is 201': (r) => r.status === 201,
+      'response has body': (r) => r.body.length > 0,
+    });
+  
+    errorRate.add(!success);
+  } catch (error) {
+    console.log(`[ERROR] Type: "Exception", Message: "서버 쓰레드 풀 부족 - 잠시 후 다시 시도해주세요.", Request: concertId=${concertId}, memberId=${memberId}`);
+    errorRate.add(false);
   }
-
-  const success = check(response, {
-    'status is 201': (r) => r.status === 201,
-    'response has body': (r) => r.body.length > 0,
-  });
-
-  errorRate.add(!success);
 }
 

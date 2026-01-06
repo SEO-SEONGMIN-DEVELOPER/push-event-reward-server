@@ -56,11 +56,11 @@ server:
   tomcat:
     connection-timeout: 25000      
     keep-alive-timeout: 25000   
-    max-connections: 8192 
+    max-connections: 100
     threads:
-      max: 100                       
+      max: 100               
       min-spare: 10                  
-    accept-count: 50                
+    accept-count: 50             
 
 logging:
   level:

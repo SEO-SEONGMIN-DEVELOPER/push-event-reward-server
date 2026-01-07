@@ -46,10 +46,19 @@ spring:
       group-id: ticketing-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: reservationEvent:com.ticketing.dto.ReservationEvent
+      max-poll-records: 10  
+      enable-auto-commit: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all  
+      retries: 3 
+      properties:
+        max.in.flight.requests.per.connection: 1  
 
 server:
   port: 8080

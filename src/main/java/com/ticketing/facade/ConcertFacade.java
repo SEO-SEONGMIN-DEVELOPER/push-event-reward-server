@@ -97,11 +97,12 @@ public class ConcertFacade {
             try {
                 Member member = memberRepository.findById(memberId)
                         .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+                
+                Concert concert = concertRepository.findById(concertId)
+                        .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
 
                 Integer remainingSeats = inventoryService.getRemainingSeats(concertId);
                 if (remainingSeats == null) {
-                    Concert concert = concertRepository.findById(concertId)
-                            .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
                     inventoryService.initializeInventory(concertId, concert.getRemainingSeats());
                     remainingSeats = concert.getRemainingSeats();
                 }
@@ -134,9 +135,6 @@ public class ConcertFacade {
                     }
                 });
 
-                Concert concert = concertRepository.findById(concertId)
-                        .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
-                
                 return new Reservation(member, concert, com.ticketing.domain.reservation.ReservationStatus.PENDING);
 
             } finally {

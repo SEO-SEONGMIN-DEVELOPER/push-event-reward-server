@@ -18,6 +18,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -44,6 +45,7 @@ public class ReservationConsumer {
     ) {
         log.info("예약 이벤트 수신: topic={}, batchSize={}", topic, events.size());
 
+        List<Reservation> reservations = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
 
@@ -53,15 +55,31 @@ public class ReservationConsumer {
             Long offset = offsets.get(i);
 
             try {
-                processReservationEvent(event, partition, offset);
+                Concert concert = concertRepository.findById(event.getConcertId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                String.format("공연을 찾을 수 없습니다: concertId=%d, partition=%d, offset=%d",
+                                        event.getConcertId(), partition, offset)));
+
+                Member member = memberRepository.findById(event.getMemberId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                String.format("회원을 찾을 수 없습니다: memberId=%d, partition=%d, offset=%d",
+                                        event.getMemberId(), partition, offset)));
+
+                Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+                reservations.add(reservation);
                 successCount++;
-                log.debug("예약 처리 성공: concertId={}, memberId={}, partition={}, offset={}", 
+                log.debug("예약 생성 성공: concertId={}, memberId={}, partition={}, offset={}",
                         event.getConcertId(), event.getMemberId(), partition, offset);
             } catch (Exception e) {
                 failureCount++;
-                log.error("예약 처리 실패: concertId={}, memberId={}, partition={}, offset={}, error={}", 
+                log.error("예약 처리 실패: concertId={}, memberId={}, partition={}, offset={}, error={}",
                         event.getConcertId(), event.getMemberId(), partition, offset, e.getMessage(), e);
             }
+        }
+
+        if (!reservations.isEmpty()) {
+            reservationRepository.saveAll(reservations);
+            log.debug("예약 DB 배치 저장 완료: count={}", reservations.size());
         }
 
         log.info("예약 이벤트 처리 완료: 성공={}, 실패={}, 총={}", successCount, failureCount, events.size());
@@ -69,27 +87,6 @@ public class ReservationConsumer {
         if (acknowledgment != null) {
             acknowledgment.acknowledge();
         }
-    }
-
-    private void processReservationEvent(ReservationEvent event, Integer partition, Long offset) {
-        Long concertId = event.getConcertId();
-        Long memberId = event.getMemberId();
-
-        Concert concert = concertRepository.findById(concertId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("공연을 찾을 수 없습니다: concertId=%d, partition=%d, offset=%d", 
-                                concertId, partition, offset)));
-
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("회원을 찾을 수 없습니다: memberId=%d, partition=%d, offset=%d", 
-                                memberId, partition, offset)));
-
-        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
-        Reservation savedReservation = reservationRepository.save(reservation);
-
-        log.debug("예약 DB 저장 완료: reservationId={}, concertId={}, memberId={}", 
-                savedReservation.getId(), concertId, memberId);
     }
 }
 

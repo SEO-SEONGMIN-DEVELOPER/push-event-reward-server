@@ -2,6 +2,32 @@
 
 고성능 동시성 제어를 위한 Spring Boot 기반 티켓팅 시스템입니다. Redis 분산 락, Kafka 비동기 처리, Prometheus/Grafana 모니터링을 지원합니다.
 
+## 기술 스택
+
+### Backend
+- **Framework**: Spring Boot 3.4.0
+- **Language**: Java 21
+- **Build Tool**: Gradle (Kotlin DSL)
+
+### Database & Cache
+- **Database**: MySQL
+- **ORM**: Spring Data JPA (Hibernate)
+- **Connection Pool**: HikariCP
+- **Cache/Distributed Lock**: Redis, Redisson
+
+### Message Queue
+- **Message Broker**: Apache Kafka
+- **Integration**: Spring Kafka
+
+### Monitoring
+- **Metrics**: Prometheus, Micrometer
+- **Visualization**: Grafana
+- **Actuator**: Spring Boot Actuator
+
+### 기타
+- **Boilerplate Reduction**: Lombok
+- **Validation**: Spring Validation
+
 ## 아키텍처
 
 ### 시스템 아키텍처 다이어그램

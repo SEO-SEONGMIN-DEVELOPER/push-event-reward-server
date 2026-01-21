@@ -8,10 +8,10 @@ import com.ticketing.domain.reservation.Reservation;
 import com.ticketing.dto.ReservationEvent;
 import com.ticketing.service.InventoryService;
 import com.ticketing.service.ReservationService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ConcertFacade {
 
@@ -29,7 +28,21 @@ public class ConcertFacade {
     private final InventoryService inventoryService;
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
-    private final KafkaTemplate<String, ReservationEvent> kafkaTemplate;
+    
+    @Autowired(required = false)
+    private KafkaTemplate<String, ReservationEvent> kafkaTemplate;
+    
+    public ConcertFacade(RedissonClient redissonClient, 
+                         ReservationService reservationService,
+                         InventoryService inventoryService,
+                         ConcertRepository concertRepository,
+                         MemberRepository memberRepository) {
+        this.redissonClient = redissonClient;
+        this.reservationService = reservationService;
+        this.inventoryService = inventoryService;
+        this.concertRepository = concertRepository;
+        this.memberRepository = memberRepository;
+    }
 
     private static final String LOCK_PREFIX = "lock:concert:";
     private static final long WAIT_TIME = 45;

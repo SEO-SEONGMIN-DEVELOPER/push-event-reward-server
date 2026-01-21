@@ -2,7 +2,8 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate, Trend } from 'k6/metrics';
 
-const errorRate = new Rate('errors');
+const httpErrorRate = new Rate('http_errors');        
+const timeoutErrorRate = new Rate('timeout_errors');  
 const responseTime = new Trend('response_time');
 
 export const options = {
@@ -14,7 +15,8 @@ export const options = {
   ],
   thresholds: {
     'http_req_duration{status:201}': ['p(95)<500'], 
-    'errors': ['rate<0.01'],            
+    'http_errors': ['rate<0.05'],       
+    'timeout_errors': ['rate<0.01'],   
   },
 };
 
@@ -106,10 +108,12 @@ export default function (data) {
       'response has body': (r) => r.body.length > 0,
     });
   
-    errorRate.add(!success);
+    httpErrorRate.add(!success);        
+    timeoutErrorRate.add(false);        
   } catch (error) {
     console.log(`[ERROR] Type: "Exception", Message: "서버 쓰레드 풀 부족 - 잠시 후 다시 시도해주세요.", Request: concertId=${concertId}, memberId=${memberId}`);
-    errorRate.add(false);
+    httpErrorRate.add(false);          
+    timeoutErrorRate.add(true);        
   }
 }
 

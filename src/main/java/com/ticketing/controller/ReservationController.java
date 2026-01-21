@@ -3,16 +3,9 @@ package com.ticketing.controller;
 import com.ticketing.domain.reservation.Reservation;
 import com.ticketing.facade.ConcertFacade;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
-
-import java.sql.SQLTimeoutException;
-import java.sql.SQLTransientException;
-import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api/reservations")
@@ -24,14 +17,14 @@ public class ReservationController {
     @PostMapping
     public ResponseEntity<?> reserve(@RequestBody ReservationRequest request) {
         try {
-            Reservation reservation = concertFacade.reserve(request.concertId(), request.memberId());
-            ReservationResponse response = new ReservationResponse(
-                    reservation.getId(),
-                    reservation.getConcert().getId(),
-                    reservation.getMember().getId(),
-                    reservation.getStatus().name()
-            );
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        Reservation reservation = concertFacade.reserve(request.concertId(), request.memberId());
+        ReservationResponse response = new ReservationResponse(
+                reservation.getId(),
+                reservation.getConcert().getId(),
+                reservation.getMember().getId(),
+                reservation.getStatus().name()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ErrorResponse("BAD_REQUEST", e.getMessage()));

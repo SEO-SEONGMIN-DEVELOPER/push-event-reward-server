@@ -29,6 +29,10 @@ dependencies {
     // Redisson
     implementation("org.redisson:redisson-spring-boot-starter:3.24.3")
 
+    // Spring Retry (Kafka 메시지 처리 실패 시 재시도)
+    implementation("org.springframework.retry:spring-retry")
+    implementation("org.springframework:spring-aspects")
+
     // Monitoring
     implementation("io.micrometer:micrometer-registry-prometheus")
 

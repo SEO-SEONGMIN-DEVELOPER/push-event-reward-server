@@ -19,7 +19,7 @@ public class ReservationController {
         try {
         Reservation reservation = concertFacade.reserve(request.concertId(), request.memberId());
         ReservationResponse response = new ReservationResponse(
-                reservation.getId(),
+                reservation.getId(),    
                 reservation.getConcert().getId(),
                 reservation.getMember().getId(),
                 reservation.getStatus().name()
@@ -50,6 +50,29 @@ public class ReservationController {
         }
     }
 
+    @PostMapping("/async")
+    public ResponseEntity<?> reserveAsync(@RequestBody ReservationRequest request) {
+        try {
+            String requestId = concertFacade.reserveWithKafka(request.concertId(), request.memberId());
+            AsyncReservationResponse response = new AsyncReservationResponse(
+                    requestId,
+                    request.concertId(),
+                    request.memberId(),
+                    "PENDING"
+            );
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse("BAD_REQUEST", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("CONFLICT", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("INTERNAL_SERVER_ERROR", e.getMessage()));
+        }
+    }
+
     public record ReservationRequest(
             Long concertId,
             Long memberId
@@ -58,6 +81,14 @@ public class ReservationController {
 
     public record ReservationResponse(
             Long id,
+            Long concertId,
+            Long memberId,
+            String status
+    ) {
+    }
+
+    public record AsyncReservationResponse(
+            String requestId,
             Long concertId,
             Long memberId,
             String status

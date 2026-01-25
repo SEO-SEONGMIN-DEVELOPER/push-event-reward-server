@@ -97,7 +97,7 @@ public class ConcertFacade {
         }
     }
 
-    public Reservation reserveWithKafka(Long concertId, Long memberId) {
+    public String reserveWithKafka(Long concertId, Long memberId) {
         String lockKey = LOCK_PREFIX + concertId;
         RLock lock = redissonClient.getLock(lockKey);
 
@@ -138,17 +138,18 @@ public class ConcertFacade {
 
                 final Long finalConcertId = concertId; 
                 final Long finalMemberId = memberId; 
+                final String requestId = event.getRequestId();
                 future.whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.error("Kafka 메시지 전송 실패: concertId={}, memberId={}", finalConcertId, finalMemberId, ex);
+                        log.error("Kafka 메시지 전송 실패: requestId={}, concertId={}, memberId={}", requestId, finalConcertId, finalMemberId, ex);
                         inventoryService.syncInventory(finalConcertId, finalRemainingSeats);
                     } else {
-                        log.debug("Kafka 메시지 전송 성공: concertId={}, memberId={}, offset={}", 
-                                finalConcertId, finalMemberId, result.getRecordMetadata().offset());
+                        log.debug("Kafka 메시지 전송 성공: requestId={}, concertId={}, memberId={}, offset={}", 
+                                requestId, finalConcertId, finalMemberId, result.getRecordMetadata().offset());
                     }
                 });
 
-                return new Reservation(member, concert, com.ticketing.domain.reservation.ReservationStatus.PENDING);
+                return requestId;
 
             } finally {
                 if (lock.isHeldByCurrentThread()) {

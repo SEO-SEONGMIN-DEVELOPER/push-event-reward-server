@@ -81,31 +81,10 @@ public class ReservationConsumer {
         }
     }
 
-    /**
-     * 개별 예약 처리 (재시도 가능)
-     * 
-     * [재시도 정책]
-     * - maxAttempts: 최대 3회 시도 (최초 1회 + 재시도 2회)
-     * - backoff: 재시도 간격 1초에서 시작하여 2배씩 증가 (1초 → 2초)
-     * - 총 소요 시간: 최대 약 3초 (1초 대기 + 2초 대기)
-     * 
-     * [재시도되는 예외]
-     * - Exception.class: 모든 예외에 대해 재시도
-     * - 일시적 오류 (DB 연결 실패, 타임아웃 등)
-     * 
-     * [재시도 흐름]
-     * 1차 시도 실패 → 1초 대기 → 2차 시도 실패 → 2초 대기 → 3차 시도 실패 → 예외 throw
-     * 
-     * @param event 예약 이벤트
-     * @param partition 파티션 번호
-     * @param offset Offset
-     * @return 생성된 Reservation 엔티티
-     * @throws Exception 3회 재시도 후에도 실패 시
-     */
     @Retryable(
-            retryFor = Exception.class,           // 모든 예외에 대해 재시도
-            maxAttempts = 3,                       // 최대 3회 시도
-            backoff = @Backoff(delay = 1000, multiplier = 2)  // 1초 대기, 다음은 2배씩 증가
+            retryFor = Exception.class,           
+            maxAttempts = 3,                    
+            backoff = @Backoff(delay = 1000, multiplier = 2) 
     )
     public Reservation processReservationWithRetry(
             ReservationEvent event,
@@ -115,19 +94,16 @@ public class ReservationConsumer {
         log.debug("예약 처리 시도: concertId={}, memberId={}, partition={}, offset={}",
                 event.getConcertId(), event.getMemberId(), partition, offset);
 
-        // 공연 조회 (없으면 예외 발생 → 재시도)
         Concert concert = concertRepository.findById(event.getConcertId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         String.format("공연을 찾을 수 없습니다: concertId=%d, partition=%d, offset=%d",
                                 event.getConcertId(), partition, offset)));
 
-        // 회원 조회 (없으면 예외 발생 → 재시도)
         Member member = memberRepository.findById(event.getMemberId())
                 .orElseThrow(() -> new IllegalArgumentException(
                         String.format("회원을 찾을 수 없습니다: memberId=%d, partition=%d, offset=%d",
                                 event.getMemberId(), partition, offset)));
 
-        // 예약 엔티티 생성 및 반환
         return new Reservation(member, concert, ReservationStatus.PENDING);
     }
 }

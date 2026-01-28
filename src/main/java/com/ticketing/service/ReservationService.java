@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -34,7 +36,8 @@ public class ReservationService {
 
         concert.reserveSeat();
 
-        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+        String requestId = UUID.randomUUID().toString();
+        Reservation reservation = new Reservation(requestId, member, concert, ReservationStatus.COMPLETED);
         return reservationRepository.save(reservation);
     }
 
@@ -59,7 +62,8 @@ public class ReservationService {
             throw new IllegalStateException("처리 중 인터럽트가 발생했습니다.", e);
         }
 
-        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+        String requestId = UUID.randomUUID().toString();
+        Reservation reservation = new Reservation(requestId, member, concert, ReservationStatus.COMPLETED);
         return reservationRepository.save(reservation);
     }
 
@@ -80,7 +84,8 @@ public class ReservationService {
 
         concert.reserveSeat();
 
-        Reservation reservation = new Reservation(member, concert, ReservationStatus.PENDING);
+        String requestId = UUID.randomUUID().toString();
+        Reservation reservation = new Reservation(requestId, member, concert, ReservationStatus.COMPLETED);
         return reservationRepository.save(reservation);
     }
 }

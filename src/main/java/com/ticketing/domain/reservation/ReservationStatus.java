@@ -1,5 +1,8 @@
 package com.ticketing.domain.reservation;
 
 public enum ReservationStatus {
-    PENDING, CONFIRMED, CANCELLED
+    PENDING,      
+    COMPLETED,    
+    FAILED,       
+    CANCELLED     
 }

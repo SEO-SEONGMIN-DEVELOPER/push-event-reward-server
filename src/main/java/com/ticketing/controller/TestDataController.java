@@ -5,6 +5,7 @@ import com.ticketing.domain.concert.ConcertRepository;
 import com.ticketing.domain.member.Member;
 import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.ReservationRepository;
+import com.ticketing.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ public class TestDataController {
     private final ReservationRepository reservationRepository;
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
+    private final InventoryService inventoryService;
 
     @PostMapping("/init")
     @Transactional
@@ -37,6 +39,10 @@ public class TestDataController {
         concerts.add(new Concert("2024 겨울 오케스트라", 10000, 10000));
         concerts.add(new Concert("2024 연말 갈라쇼", 10000, 10000));
         concerts = concertRepository.saveAll(concerts);
+
+        for (Concert concert : concerts) {
+            inventoryService.initializeInventory(concert.getId(), 100000);
+        }
 
         List<Member> members = new ArrayList<>();
         for (int i = 1; i <= 200; i++) {

@@ -73,6 +73,27 @@ public class ReservationController {
         }
     }
 
+    @GetMapping("/request/{requestId}")
+    public ResponseEntity<?> getReservationStatus(@PathVariable String requestId) {
+        try {
+            Reservation reservation = concertFacade.getReservationByRequestId(requestId);
+            ReservationStatusResponse response = new ReservationStatusResponse(
+                    reservation.getRequestId(),
+                    reservation.getId(),
+                    reservation.getConcert().getId(),
+                    reservation.getMember().getId(),
+                    reservation.getStatus().name()
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("NOT_FOUND", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("INTERNAL_SERVER_ERROR", e.getMessage()));
+        }
+    }
+
     public record ReservationRequest(
             Long concertId,
             Long memberId
@@ -89,6 +110,15 @@ public class ReservationController {
 
     public record AsyncReservationResponse(
             String requestId,
+            Long concertId,
+            Long memberId,
+            String status
+    ) {
+    }
+
+    public record ReservationStatusResponse(
+            String requestId,
+            Long reservationId,
             Long concertId,
             Long memberId,
             String status

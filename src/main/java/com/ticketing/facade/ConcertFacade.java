@@ -5,6 +5,7 @@ import com.ticketing.domain.concert.ConcertRepository;
 import com.ticketing.domain.member.Member;
 import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.Reservation;
+import com.ticketing.domain.reservation.ReservationRepository;
 import com.ticketing.dto.ReservationEvent;
 import com.ticketing.service.InventoryService;
 import com.ticketing.service.ReservationService;
@@ -28,6 +29,7 @@ public class ConcertFacade {
     private final InventoryService inventoryService;
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
+    private final ReservationRepository reservationRepository;
     
     @Autowired(required = false)
     private KafkaTemplate<String, ReservationEvent> kafkaTemplate;
@@ -36,12 +38,14 @@ public class ConcertFacade {
                          ReservationService reservationService,
                          InventoryService inventoryService,
                          ConcertRepository concertRepository,
-                         MemberRepository memberRepository) {
+                         MemberRepository memberRepository,
+                         ReservationRepository reservationRepository) {
         this.redissonClient = redissonClient;
         this.reservationService = reservationService;
         this.inventoryService = inventoryService;
         this.concertRepository = concertRepository;
         this.memberRepository = memberRepository;
+        this.reservationRepository = reservationRepository;
     }
 
     private static final String LOCK_PREFIX = "lock:concert:";
@@ -160,6 +164,11 @@ public class ConcertFacade {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("락 획득 중 인터럽트가 발생했습니다.", e);
         }
+    }
+
+    public Reservation getReservationByRequestId(String requestId) {
+        return reservationRepository.findByRequestId(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("예약을 찾을 수 없습니다: " + requestId));
     }
 }
 

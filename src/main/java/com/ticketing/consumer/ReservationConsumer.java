@@ -57,15 +57,35 @@ public class ReservationConsumer {
             Long offset = offsets.get(i);
 
             try {
+                // 성공 시 COMPLETED 상태로 저장
                 Reservation reservation = processReservationWithRetry(event, partition, offset);
+                reservation.complete();  // PENDING → COMPLETED
                 reservations.add(reservation);
                 successCount++;
-                log.debug("예약 생성 성공: concertId={}, memberId={}, partition={}, offset={}",
-                        event.getConcertId(), event.getMemberId(), partition, offset);
+                log.debug("예약 생성 성공: requestId={}, concertId={}, memberId={}, partition={}, offset={}",
+                        event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset);
             } catch (Exception e) {
                 failureCount++;
-                log.error("예약 처리 최종 실패 (3회 재시도 후): concertId={}, memberId={}, partition={}, offset={}, error={}",
-                        event.getConcertId(), event.getMemberId(), partition, offset, e.getMessage(), e);
+                log.error("예약 처리 최종 실패 (3회 재시도 후): requestId={}, concertId={}, memberId={}, partition={}, offset={}, error={}",
+                        event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset, e.getMessage(), e);
+                
+                // 실패 시 FAILED 상태로 저장 (멤버/콘서트 조회 가능한 경우에만)
+                try {
+                    Member member = memberRepository.findById(event.getMemberId()).orElse(null);
+                    Concert concert = concertRepository.findById(event.getConcertId()).orElse(null);
+                    
+                    if (member != null && concert != null) {
+                        Reservation failedReservation = new Reservation(
+                                event.getRequestId(), 
+                                member, 
+                                concert, 
+                                ReservationStatus.FAILED
+                        );
+                        reservations.add(failedReservation);
+                    }
+                } catch (Exception ex) {
+                    log.error("실패 예약 저장 중 오류: requestId={}, error={}", event.getRequestId(), ex.getMessage());
+                }
             }
         }
 
@@ -91,20 +111,20 @@ public class ReservationConsumer {
             Integer partition,
             Long offset
     ) {
-        log.debug("예약 처리 시도: concertId={}, memberId={}, partition={}, offset={}",
-                event.getConcertId(), event.getMemberId(), partition, offset);
+        log.debug("예약 처리 시도: requestId={}, concertId={}, memberId={}, partition={}, offset={}",
+                event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset);
 
         Concert concert = concertRepository.findById(event.getConcertId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("공연을 찾을 수 없습니다: concertId=%d, partition=%d, offset=%d",
-                                event.getConcertId(), partition, offset)));
+                        String.format("공연을 찾을 수 없습니다: requestId=%s, concertId=%d, partition=%d, offset=%d",
+                                event.getRequestId(), event.getConcertId(), partition, offset)));
 
         Member member = memberRepository.findById(event.getMemberId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        String.format("회원을 찾을 수 없습니다: memberId=%d, partition=%d, offset=%d",
-                                event.getMemberId(), partition, offset)));
+                        String.format("회원을 찾을 수 없습니다: requestId=%s, memberId=%d, partition=%d, offset=%d",
+                                event.getRequestId(), event.getMemberId(), partition, offset)));
 
-        return new Reservation(member, concert, ReservationStatus.PENDING);
+        return new Reservation(event.getRequestId(), member, concert, ReservationStatus.PENDING);
     }
 }
 

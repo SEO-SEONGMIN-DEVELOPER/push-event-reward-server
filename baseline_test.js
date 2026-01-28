@@ -14,7 +14,7 @@ export const options = {
     { duration: '10s', target: 0 },  
   ],
   thresholds: {
-    'http_req_duration{status:201}': ['p(95)<500'], 
+    'http_req_duration{status:202}': ['p(95)<500'], 
     'http_errors': ['rate<0.05'],       
     'timeout_errors': ['rate<0.01'],   
   },
@@ -68,10 +68,10 @@ export default function (data) {
 
   
   try {
-    const response = http.post(`${BASE_URL}/api/reservations`, payload, params);
+    const response = http.post(`${BASE_URL}/api/reservations/async`, payload, params);
     responseTime.add(response.timings.duration);
 
-    if (response.status !== 201) {
+    if (response.status !== 202) {
       let errorType = 'Unknown Error';
       let errorMessage = '';
       
@@ -104,8 +104,15 @@ export default function (data) {
     }
 
     const success = check(response, {
-      'status is 201': (r) => r.status === 201,
-      'response has body': (r) => r.body.length > 0,
+      'status is 202': (r) => r.status === 202,
+      'response has requestId': (r) => {
+        try {
+          const body = JSON.parse(r.body);
+          return body.requestId && body.requestId.length > 0;
+        } catch (e) {
+          return false;
+        }
+      },
     });
   
     httpErrorRate.add(!success);        

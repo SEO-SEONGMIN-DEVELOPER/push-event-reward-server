@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
@@ -19,5 +20,9 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
     })
     @Query("SELECT c FROM Concert c WHERE c.id = :id")
     Optional<Concert> findByIdWithLock(Long id);
+
+    @Modifying
+    @Query("UPDATE Concert c SET c.remainingSeats = :remainingSeats WHERE c.id = :concertId")
+    int updateRemainingSeats(Long concertId, Integer remainingSeats);
 }
 

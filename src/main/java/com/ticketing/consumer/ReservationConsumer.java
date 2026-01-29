@@ -8,6 +8,7 @@ import com.ticketing.domain.reservation.Reservation;
 import com.ticketing.domain.reservation.ReservationRepository;
 import com.ticketing.domain.reservation.ReservationStatus;
 import com.ticketing.dto.ReservationEvent;
+import com.ticketing.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -31,6 +32,7 @@ public class ReservationConsumer {
     private final ReservationRepository reservationRepository;
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
+    private final InventoryService inventoryService;
 
     @KafkaListener(
             topics = "ticket_reservation",
@@ -48,6 +50,7 @@ public class ReservationConsumer {
         log.info("예약 이벤트 수신: topic={}, batchSize={}", topic, events.size());
 
         List<Reservation> reservations = new ArrayList<>();
+        List<Concert> concertsToUpdate = new ArrayList<>();
         int successCount = 0;
         int failureCount = 0;
 
@@ -57,10 +60,15 @@ public class ReservationConsumer {
             Long offset = offsets.get(i);
 
             try {
-                // 성공 시 COMPLETED 상태로 저장
                 Reservation reservation = processReservationWithRetry(event, partition, offset);
-                reservation.complete();  // PENDING → COMPLETED
+                reservation.complete();  
                 reservations.add(reservation);
+                
+                // Concert remainingSeats 차감 (DB 동기화)
+                Concert concert = reservation.getConcert();
+                concert.reserveSeat();
+                concertsToUpdate.add(concert);
+                
                 successCount++;
                 log.debug("예약 생성 성공: requestId={}, concertId={}, memberId={}, partition={}, offset={}",
                         event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset);
@@ -69,7 +77,6 @@ public class ReservationConsumer {
                 log.error("예약 처리 최종 실패 (3회 재시도 후): requestId={}, concertId={}, memberId={}, partition={}, offset={}, error={}",
                         event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset, e.getMessage(), e);
                 
-                // 실패 시 FAILED 상태로 저장 (멤버/콘서트 조회 가능한 경우에만)
                 try {
                     Member member = memberRepository.findById(event.getMemberId()).orElse(null);
                     Concert concert = concertRepository.findById(event.getConcertId()).orElse(null);
@@ -92,6 +99,11 @@ public class ReservationConsumer {
         if (!reservations.isEmpty()) {
             reservationRepository.saveAll(reservations);
             log.debug("예약 DB 배치 저장 완료: count={}", reservations.size());
+        }
+        
+        if (!concertsToUpdate.isEmpty()) {
+            concertRepository.saveAll(concertsToUpdate);
+            log.debug("공연 재고 DB 동기화 완료: count={}", concertsToUpdate.size());
         }
 
         log.info("예약 이벤트 처리 완료: 성공={}, 실패={}, 총={}", successCount, failureCount, events.size());

@@ -6,6 +6,7 @@ import com.ticketing.domain.member.Member;
 import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.ReservationRepository;
 import com.ticketing.service.InventoryService;
+import com.ticketing.service.InventorySyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class TestDataController {
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
     private final InventoryService inventoryService;
+    private final InventorySyncService inventorySyncService;
 
     @PostMapping("/init")
     @Transactional
@@ -33,11 +35,11 @@ public class TestDataController {
         memberRepository.deleteAll();
 
         List<Concert> concerts = new ArrayList<>();
-        concerts.add(new Concert("2024 봄 콘서트", 10000, 10000));
-        concerts.add(new Concert("2024 여름 페스티벌", 10000, 10000));
-        concerts.add(new Concert("2024 가을 뮤지컬", 10000, 10000));
-        concerts.add(new Concert("2024 겨울 오케스트라", 10000, 10000));
-        concerts.add(new Concert("2024 연말 갈라쇼", 10000, 10000));
+        concerts.add(new Concert("2024 봄 콘서트", 100000, 10000));
+        concerts.add(new Concert("2024 여름 페스티벌", 100000, 10000));
+        concerts.add(new Concert("2024 가을 뮤지컬", 100000, 10000));
+        concerts.add(new Concert("2024 겨울 오케스트라", 100000, 10000));
+        concerts.add(new Concert("2024 연말 갈라쇼", 100000, 10000));
         concerts = concertRepository.saveAll(concerts);
 
         for (Concert concert : concerts) {
@@ -68,12 +70,72 @@ public class TestDataController {
                 ));
     }
 
+    @PostMapping("/sync/db-to-redis")
+    public ResponseEntity<SyncResponse> syncDbToRedis() {
+        inventorySyncService.syncDbToRedis();
+        return ResponseEntity.ok(new SyncResponse("DB → Redis 재고 동기화가 완료되었습니다."));
+    }
+
+    @PostMapping("/sync/redis-to-db")
+    public ResponseEntity<SyncResponse> syncRedisToDB() {
+        inventorySyncService.syncRedisToDB();
+        return ResponseEntity.ok(new SyncResponse("Redis → DB 재고 동기화가 완료되었습니다."));
+    }
+
+    @PostMapping("/sync/concert/{concertId}")
+    public ResponseEntity<SyncResponse> syncConcertInventory(
+            @PathVariable Long concertId,
+            @RequestParam(defaultValue = "db") String source) {
+        inventorySyncService.syncInventoryForConcert(concertId, source);
+        return ResponseEntity.ok(new SyncResponse(
+                String.format("콘서트 %d의 재고가 %s 기준으로 동기화되었습니다.", concertId, source.toUpperCase())
+        ));
+    }
+
+    @GetMapping("/sync/report")
+    public ResponseEntity<SyncResponse> reportInventoryMismatch() {
+        inventorySyncService.reportInventoryMismatch();
+        return ResponseEntity.ok(new SyncResponse("재고 불일치 리포트가 로그에 출력되었습니다."));
+    }
+
+    @GetMapping("/inventory/{concertId}")
+    public ResponseEntity<InventoryStatusResponse> getInventoryStatus(@PathVariable Long concertId) {
+        Concert concert = concertRepository.findById(concertId)
+                .orElseThrow(() -> new IllegalArgumentException("공연을 찾을 수 없습니다: " + concertId));
+        
+        Integer redisSeats = inventoryService.getRemainingSeats(concertId);
+        Integer dbSeats = concert.getRemainingSeats();
+        boolean synced = redisSeats != null && redisSeats.equals(dbSeats);
+        
+        return ResponseEntity.ok(new InventoryStatusResponse(
+                concertId,
+                concert.getTitle(),
+                redisSeats,
+                dbSeats,
+                synced,
+                synced ? 0 : Math.abs((redisSeats != null ? redisSeats : 0) - dbSeats)
+        ));
+    }
+
     public record InitResponse(
             int concertCount,
             int memberCount,
             List<Long> concertIds,
             List<Long> memberIds,
             String message
+    ) {
+    }
+
+    public record SyncResponse(String message) {
+    }
+
+    public record InventoryStatusResponse(
+            Long concertId,
+            String title,
+            Integer redisSeats,
+            Integer dbSeats,
+            boolean synced,
+            int difference
     ) {
     }
 }

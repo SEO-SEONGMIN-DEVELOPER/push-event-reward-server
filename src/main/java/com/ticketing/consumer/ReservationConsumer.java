@@ -7,11 +7,13 @@ import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.Reservation;
 import com.ticketing.domain.reservation.ReservationRepository;
 import com.ticketing.domain.reservation.ReservationStatus;
+import com.ticketing.dto.DeadLetterEvent;
 import com.ticketing.dto.ReservationEvent;
 import com.ticketing.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -29,10 +31,13 @@ import java.util.List;
 @Slf4j
 public class ReservationConsumer {
 
+    private static final String DLQ_TOPIC = "ticket_reservation_dlq";
+
     private final ReservationRepository reservationRepository;
     private final ConcertRepository concertRepository;
     private final MemberRepository memberRepository;
     private final InventoryService inventoryService;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @KafkaListener(
             topics = "ticket_reservation",
@@ -64,7 +69,6 @@ public class ReservationConsumer {
                 reservation.complete();  
                 reservations.add(reservation);
                 
-                // Concert remainingSeats 차감 (DB 동기화)
                 Concert concert = reservation.getConcert();
                 concert.reserveSeat();
                 concertsToUpdate.add(concert);
@@ -76,6 +80,9 @@ public class ReservationConsumer {
                 failureCount++;
                 log.error("예약 처리 최종 실패 (3회 재시도 후): requestId={}, concertId={}, memberId={}, partition={}, offset={}, error={}",
                         event.getRequestId(), event.getConcertId(), event.getMemberId(), partition, offset, e.getMessage(), e);
+                
+                // DLQ로 전송
+                sendToDeadLetterQueue(event, e, partition, offset);
                 
                 try {
                     Member member = memberRepository.findById(event.getMemberId()).orElse(null);
@@ -137,6 +144,17 @@ public class ReservationConsumer {
                                 event.getRequestId(), event.getMemberId(), partition, offset)));
 
         return new Reservation(event.getRequestId(), member, concert, ReservationStatus.PENDING);
+    }
+
+    private void sendToDeadLetterQueue(ReservationEvent event, Exception exception, Integer partition, Long offset) {
+        try {
+            DeadLetterEvent dlqEvent = DeadLetterEvent.of(event, exception, partition, offset);
+            kafkaTemplate.send(DLQ_TOPIC, event.getRequestId(), dlqEvent);
+            log.info("DLQ 전송 완료: requestId={}, topic={}, partition={}, offset={}", 
+                    event.getRequestId(), DLQ_TOPIC, partition, offset);
+        } catch (Exception e) {
+            log.error("DLQ 전송 실패: requestId={}, error={}", event.getRequestId(), e.getMessage(), e);
+        }
     }
 }
 

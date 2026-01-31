@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/test")
@@ -26,6 +28,7 @@ public class TestDataController {
     private final MemberRepository memberRepository;
     private final InventoryService inventoryService;
     private final InventorySyncService inventorySyncService;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
 
     @PostMapping("/init")
     @Transactional
@@ -137,6 +140,21 @@ public class TestDataController {
             boolean synced,
             int difference
     ) {
+    }
+
+    @PostMapping("/force-dlq")
+    public ResponseEntity<Map<String, String>> forceDlqTest() {
+        com.ticketing.dto.ReservationEvent event = new com.ticketing.dto.ReservationEvent(99999L, 99999L);
+        kafkaTemplate.send("ticket_reservation", event.getRequestId(), event);
+        
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "DLQ 테스트 이벤트 전송 완료");
+        response.put("requestId", event.getRequestId());
+        response.put("concertId", "99999");
+        response.put("memberId", "99999");
+        response.put("info", "약 7초 후 DLQ 로그를 확인하세요");
+        
+        return ResponseEntity.ok(response);
     }
 }
 

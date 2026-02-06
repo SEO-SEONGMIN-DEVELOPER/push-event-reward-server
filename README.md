@@ -1,4 +1,24 @@
-# Kafka 기반의 Event-Driven 아키텍처를 적용한 대규모 트래픽 분산 처리 예약 시스템
+# Kafka 기반의 Event-Driven 아키텍처를 적용한 고성능 대규모 트래픽 처리 예약 시스템
+
+## 목차
+- [1. 프로젝트 요약](#1-프로젝트-요약)
+- [2. 핵심 기술 스택](#2-핵심-기술-스택)
+- [3. 아키텍처](#3-아키텍처)
+  - [3.1 기존 동기 방식 (Redisson 분산 락)](#31-기존-동기-방식-redisson-분산-락)
+  - [3.2 개선된 비동기 방식 (Redis + Kafka)](#32-개선된-비동기-방식-redis--kafka)
+- [4. 핵심 성과](#4-핵심-성과)
+  - [4.1 Error Rate, CPU Usage, JVM Heap Memory](#41-error-rate-cpu-usage-jvm-heap-memory)
+  - [4.2 RPS, Response Time](#42-rps-response-time)
+  - [4.3 Tomcat Threads, DB Connections](#43-tomcat-threads-db-connections)
+- [5. 트러블슈팅](#5-트러블슈팅)
+  - [5.1 Deadlock 및 데이터 정합성 문제 해결](#51-deadlock-및-데이터-정합성-문제-해결)
+  - [5.2 DB Connection 점유 문제 해결](#52-db-connection-점유-문제-해결)
+  - [5.3 분산 락의 성능 한계 극복](#53-분산-락의-성능-한계-극복)
+
+---
+
+<br>
+<br>
 
 ## 1. 프로젝트 요약
 
@@ -16,6 +36,9 @@
 | **처리량 (RPS)** | 100 req/s | 6,000 req/s | ${\textsf{\color{red}60배 향상}}$ |
 | **응답 시간** | 3,500ms | 27ms | ${\textsf{\color{red}129배 감소}}$ |
 
+<br>
+<br>
+
 ## 2. 핵심 기술 스택
 
 | 분류 | 기술 | 사용 목적 |
@@ -28,6 +51,9 @@
 | **Containerization** | Docker Compose | 로컬 개발 환경 구성 |
 | **Monitoring** | Prometheus, Grafana | 메트릭 수집 및 시각화 |
 | **Load Testing** | k6 | 부하 테스트 및 성능 측정 |
+
+<br>
+<br>
 
 ## 3. 아키텍처
 
@@ -88,6 +114,9 @@ Redis의 DECR 명령은 원자적(atomic)으로 동작하므로 별도의 분산
 Kafka Consumer가 단일 쓰레드로 배치 처리하여 DB 커넥션을 1개만 사용하므로 리소스 효율이 극대화됩니다.
 이를 통해 API 서버는 6,000 RPS를 안정적으로 처리하고, 평균 응답 시간을 27ms로 단축했습니다.
 
+<br>
+<br>
+
 ## 4. 핵심 성과
 
 ### 4.1 Error Rate, CPU Usage, JVM Heap Memory
@@ -97,6 +126,8 @@ Kafka Consumer가 단일 쓰레드로 배치 처리하여 DB 커넥션을 1개�
 | **Error Rate** | 95% | 0% | ${\textsf{\color{red}↓ 95\%p}}$ |
 | **CPU Usage** | 3% | 30% | ↑ 10배 |
 | **JVM Heap Memory** | 128 MiB | 224 MiB | ↑ 1.75배 |
+
+<br>
 
 > **Kafka 도입 전**
 
@@ -116,6 +147,8 @@ Kafka Consumer가 단일 쓰레드로 배치 처리하여 DB 커넥션을 1개�
 | **Response Time P99** | 3,700 ms | 27 ms | ${\textsf{\color{red}↓ 137배}}$ |
 | **Response Time P95** | 3,500 ms | 27 ms | ${\textsf{\color{red}↓ 129배}}$ |
 
+<br>
+
 > **Kafka 도입 전**
 
 ![Before Kafka 2](./docs/images/before-kafka-2.png)
@@ -134,6 +167,8 @@ Kafka Consumer가 단일 쓰레드로 배치 처리하여 DB 커넥션을 1개�
 | **HikariCP Active Connections** | 12 | 1 | ${\textsf{\color{red}↓ 12배}}$ |
 | **HikariCP Pending Connections** | 10 | 0 | ↓ 100% |
 
+<br>
+
 > **Kafka 도입 전**
 
 ![Before Kafka 3](./docs/images/before-kafka-3.png)
@@ -142,12 +177,15 @@ Kafka Consumer가 단일 쓰레드로 배치 처리하여 DB 커넥션을 1개�
 
 ![After Kafka 3](./docs/images/after-kafka-3.png)
 
+<br>
+<br>
+
 ## 5. 트러블슈팅
 
 ### 5.1 Deadlock 및 데이터 정합성 문제 해결
 
 #### 문제 상황
-동시성 제어 없이 100개의 동시 예약 요청을 전송했을 때, MySQL에서 약 80개의 트랜잭션이 (${\textsf{\color{red}순환 대기 상태(Deadlock)}}$)에 빠졌습니다.
+동시성 제어 없이 100개의 동시 예약 요청을 전송했을 때, MySQL에서 약 80개의 트랜잭션이 ${\textsf{\color{red}순환 대기 상태(Deadlock)}}$에 빠졌습니다.
 MySQL은 교착 상태를 감지하고 80개의 트랜잭션을 강제 Rollback시켜 약 20개만 성공했습니다.
 더 심각한 문제는 성공한 20개 트랜잭션조차 ${\textsf{\color{red}Race Condition}}$으로 인해 **생성된 예약 수 ≠ 감소된 좌석 수**라는 ${\textsf{\color{red}데이터 정합성 오류}}$가 발생한 것입니다.
 

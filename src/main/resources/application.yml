@@ -9,8 +9,8 @@ spring:
     password: ticketing123
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
+      maximum-pool-size: 100
+      minimum-idle: 20
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -35,9 +35,9 @@ spring:
       timeout: 2000ms
       lettuce:
         pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+          max-active: 50
+          max-idle: 50
+          min-idle: 10
 
   # Kafka Configuration
   kafka:
@@ -55,21 +55,24 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all  
+      acks: 1
+      batch-size: 32768
+      linger-ms: 1
+      compression-type: lz4
       retries: 3 
       properties:
-        max.in.flight.requests.per.connection: 1  
+        max.in.flight.requests.per.connection: 5
 
 server:
   port: 8080
   tomcat:
     connection-timeout: 25000      
     keep-alive-timeout: 25000   
-    max-connections: 100
+    max-connections: 200
     threads:
-      max: 100               
-      min-spare: 10                  
-    accept-count: 50             
+      max: 200               
+      min-spare: 50                  
+    accept-count: 100             
 
 logging:
   level:

@@ -41,7 +41,6 @@ public class Reservation {
         this.status = status;
     }
 
-    // 상태 업데이트 메서드
     public void complete() {
         this.status = ReservationStatus.COMPLETED;
     }

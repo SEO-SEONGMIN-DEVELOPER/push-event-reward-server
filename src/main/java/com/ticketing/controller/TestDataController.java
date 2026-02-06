@@ -7,6 +7,7 @@ import com.ticketing.domain.member.MemberRepository;
 import com.ticketing.domain.reservation.ReservationRepository;
 import com.ticketing.service.InventoryService;
 import com.ticketing.service.InventorySyncService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,20 +30,28 @@ public class TestDataController {
     private final InventoryService inventoryService;
     private final InventorySyncService inventorySyncService;
     private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+    private final EntityManager entityManager;
 
     @PostMapping("/init")
     @Transactional
     public ResponseEntity<InitResponse> initializeTestData() {
-        reservationRepository.deleteAll();
-        concertRepository.deleteAll();
-        memberRepository.deleteAll();
+        entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
+        entityManager.createNativeQuery("TRUNCATE TABLE reservations").executeUpdate();
+        entityManager.createNativeQuery("TRUNCATE TABLE concerts").executeUpdate();
+        entityManager.createNativeQuery("TRUNCATE TABLE members").executeUpdate();
+        entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
 
         List<Concert> concerts = new ArrayList<>();
-        concerts.add(new Concert("2024 봄 콘서트", 100000, 10000));
-        concerts.add(new Concert("2024 여름 페스티벌", 100000, 10000));
-        concerts.add(new Concert("2024 가을 뮤지컬", 100000, 10000));
-        concerts.add(new Concert("2024 겨울 오케스트라", 100000, 10000));
-        concerts.add(new Concert("2024 연말 갈라쇼", 100000, 10000));
+        concerts.add(new Concert("콘서트1", 100000, 100000));
+        concerts.add(new Concert("콘서트2", 100000, 100000));
+        concerts.add(new Concert("콘서트3", 100000, 100000));
+        concerts.add(new Concert("콘서트4", 100000, 100000));
+        concerts.add(new Concert("콘서트5", 100000, 100000));
+        concerts.add(new Concert("콘서트6", 100000, 100000));
+        concerts.add(new Concert("콘서트7", 100000, 100000));
+        concerts.add(new Concert("콘서트8", 100000, 100000));
+        concerts.add(new Concert("콘서트9", 100000, 100000));
+        concerts.add(new Concert("콘서트10", 100000, 100000));
         concerts = concertRepository.saveAll(concerts);
 
         for (Concert concert : concerts) {

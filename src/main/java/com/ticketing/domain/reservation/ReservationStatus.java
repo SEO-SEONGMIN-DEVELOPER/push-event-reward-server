@@ -6,3 +6,4 @@ public enum ReservationStatus {
     FAILED,       
     CANCELLED     
 }
+

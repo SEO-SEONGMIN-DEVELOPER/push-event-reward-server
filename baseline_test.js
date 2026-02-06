@@ -8,12 +8,21 @@ const responseTime = new Trend('response_time');
 
 export const options = {
   noConnectionReuse: true,
-  stages: [
-    { duration: '10s', target: 200 }, 
-    { duration: '30s', target: 200 }, 
-    { duration: '10s', target: 0 },  
-  ],
+  scenarios: {
+    ramping_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '10s', target: 2000 }, 
+        { duration: '30s', target: 2000 }, 
+        { duration: '10s', target: 0 },  
+      ],
+      gracefulRampDown: '30s',
+      gracefulStop: '30s',
+    },
+  },
   thresholds: {
+    // 'http_req_duration{status:201}': ['p(95)<500'], 
     'http_req_duration{status:202}': ['p(95)<500'], 
     'http_errors': ['rate<0.05'],       
     'timeout_errors': ['rate<0.01'],   
@@ -48,11 +57,10 @@ export function setup() {
 }
 
 export default function (data) {
-  const concertIds = data.concertIds || [1, 2, 3, 4, 5];
+  const concertIds = data.concertIds || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const memberIds = data.memberIds || Array.from({length: 200}, (_, i) => i + 1);
   
-  // const concertId = concertIds[Math.floor(Math.random() * concertIds.length)];
-  const concertId = concertIds[0]
+  const concertId = concertIds[Math.floor(Math.random() * concertIds.length)];
   const memberId = memberIds[Math.floor(Math.random() * memberIds.length)];
 
   const payload = JSON.stringify({
@@ -68,9 +76,11 @@ export default function (data) {
 
   
   try {
+    // const response = http.post(`${BASE_URL}/api/reservations`, payload, params);
     const response = http.post(`${BASE_URL}/api/reservations/async`, payload, params);
     responseTime.add(response.timings.duration);
 
+    // if (response.status !== 201) {
     if (response.status !== 202) {
       let errorType = 'Unknown Error';
       let errorMessage = '';
@@ -102,6 +112,18 @@ export default function (data) {
       
       console.log(`[ERROR] Type: ${errorType}, Status: ${response.status}, Message: ${errorMessage}, Request: concertId=${concertId}, memberId=${memberId}`);
     }
+
+    // const success = check(response, {
+    //   'status is 201': (r) => r.status === 201,
+    //   'response has id': (r) => {
+    //     try {
+    //       const body = JSON.parse(r.body);
+    //       return body.id && body.id > 0;
+    //     } catch (e) {
+    //       return false;
+    //     }
+    //   },
+    // })
 
     const success = check(response, {
       'status is 202': (r) => r.status === 202,

@@ -48,6 +48,12 @@ public class InventoryService {
         return true;
     }
 
+    public void incrementSeat(Long concertId) {
+        String key = INVENTORY_KEY_PREFIX + concertId;
+        Long result = redisTemplate.opsForValue().increment(key);
+        log.info("재고 복구: concertId={}, remaining={}", concertId, result);
+    }
+
     public void initializeInventory(Long concertId, Integer initialSeats) {
         String key = INVENTORY_KEY_PREFIX + concertId;
         redisTemplate.opsForValue().set(key, String.valueOf(initialSeats), 7, TimeUnit.DAYS);

@@ -1,2 +1,2 @@
-rootProject.name = "ticketing-system"
+rootProject.name = "pushquiz-system"
 

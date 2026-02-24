@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3307/ticketing_system_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
-    username: ticketing
-    password: ticketing123
+    url: jdbc:mysql://localhost:3307/pushquiz_system_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    username: pushquiz
+    password: pushquiz123
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 100
@@ -18,6 +18,6 @@ spring:
 logging:
   level:
     root: WARN
-    com.ticketing: INFO
+    com.pushquiz: INFO
     org.hibernate.SQL: WARN
 

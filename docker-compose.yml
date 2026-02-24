@@ -3,12 +3,12 @@ version: '3.8'
 services:
   mysql:
     image: mysql:8.4
-    container_name: ticketing-mysql
+    container_name: pushquiz-mysql
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: ticketing_system
-      MYSQL_USER: ticketing
-      MYSQL_PASSWORD: ticketing123
+      MYSQL_DATABASE: pushquiz_system
+      MYSQL_USER: pushquiz
+      MYSQL_PASSWORD: pushquiz123
     ports:
       - "3306:3306"
     volumes:
@@ -21,12 +21,12 @@ services:
 
   mysql-test:
     image: mysql:8.4
-    container_name: ticketing-mysql-test
+    container_name: pushquiz-mysql-test
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: ticketing_system_test
-      MYSQL_USER: ticketing
-      MYSQL_PASSWORD: ticketing123
+      MYSQL_DATABASE: pushquiz_system_test
+      MYSQL_USER: pushquiz
+      MYSQL_PASSWORD: pushquiz123
     ports:
       - "3307:3306"
     volumes:
@@ -39,7 +39,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ticketing-redis
+    container_name: pushquiz-redis
     ports:
       - "6379:6379"
     volumes:
@@ -52,7 +52,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: ticketing-zookeeper
+    container_name: pushquiz-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -66,7 +66,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: ticketing-kafka
+    container_name: pushquiz-kafka
     depends_on:
       - zookeeper
     ports:
@@ -86,7 +86,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: ticketing-prometheus
+    container_name: pushquiz-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -103,7 +103,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: ticketing-grafana
+    container_name: pushquiz-grafana
     ports:
       - "3000:3000"
     environment:

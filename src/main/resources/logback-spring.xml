@@ -30,17 +30,17 @@
         </rollingPolicy>
     </appender>
 
-    <logger name="com.ticketing.consumer.DeadLetterConsumer" level="INFO" additivity="false">
+    <logger name="com.pushquiz.consumer.DeadLetterConsumer" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="DLQ_FILE"/>
     </logger>
 
-    <logger name="com.ticketing.consumer.ReservationConsumer" level="INFO" additivity="false">
+    <logger name="com.pushquiz.consumer.QuizSubmissionConsumer" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="APP_FILE"/>
     </logger>
 
-    <logger name="com.ticketing" level="INFO"/>
+    <logger name="com.pushquiz" level="INFO"/>
     
     <logger name="org.hibernate.SQL" level="WARN"/>
     <logger name="org.hibernate.type" level="WARN"/>

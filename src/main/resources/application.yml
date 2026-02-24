@@ -1,12 +1,12 @@
 spring:
   application:
-    name: ticketing-system
+    name: pushquiz-system
 
   # Database Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/ticketing_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
-    username: ticketing
-    password: ticketing123
+    url: jdbc:mysql://localhost:3306/pushquiz_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    username: pushquiz
+    password: pushquiz123
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 100
@@ -43,13 +43,13 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
-      group-id: ticketing-group
+      group-id: push-quiz-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
-        spring.json.type.mapping: reservationEvent:com.ticketing.dto.ReservationEvent,deadLetterEvent:com.ticketing.dto.DeadLetterEvent
+        spring.json.type.mapping: quizSubmissionEvent:com.pushquiz.dto.QuizSubmissionEvent,deadLetterEvent:com.pushquiz.dto.DeadLetterEvent
       max-poll-records: 10  
       enable-auto-commit: false
     producer:
@@ -77,9 +77,9 @@ server:
 logging:
   level:
     root: WARN
-    com.ticketing: INFO
-    com.ticketing.consumer: INFO
-    com.ticketing.facade: INFO
+    com.pushquiz: INFO
+    com.pushquiz.consumer: INFO
+    com.pushquiz.facade: INFO
     org.springframework.kafka: WARN
     org.apache.kafka: WARN
     org.hibernate.SQL: WARN
